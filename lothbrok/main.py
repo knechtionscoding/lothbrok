@@ -17,15 +17,15 @@ docker image, open an issue reporting the out of date container, and then open a
 
 def auth(ACCESS_TOKEN):
     gh = Github(ACCESS_TOKEN)
-    # org = gh.get_organization(ORG_NAMES)
     return gh
 
 
-def search_github(gh, query):
-    result = gh.search_code(query)
+def search_github(gh, query, organization):
+    result = gh.search_code(query, organization=organization)
+    repositories = []
     for repo in result:
-        print(repo)
-    return result
+        repositories.append(repo.repository.full_name)
+    return repositories
 
 
 def commit_files(repo, head, base, container):
@@ -44,11 +44,15 @@ def commit_files(repo, head, base, container):
             print("no changes")
 
 
-def pull_repo(repo):
-    return True
+def pull_repo(gh, repo_name):
+    repo_url = gh.get_repo(repo_name).clone_url
+    try:
+        Repo.clone_from(repo_url, repo_name)
+    except:
+        print("something went wrong when cloning repo")
 
 
-def update_container_image(container):
+def update_container_image(old_container, new_container, directory):
     return True
 
 
@@ -56,20 +60,20 @@ def remove_directory():
     return True
 
 
-def update_from_image(gh, repositories, container):
+def update_from_image(gh, repositories, old_container, new_container):
     """
     This code pulls the repository in question, does a git checkout on a new branch,
     then does a find and replace on the old image and the new image
     and then does a git commit and git push, and then opens a PR
     """
     for repo in repositories:
-        pull_repo(repo)
-        update_container_image(container)
-        head = f"{container}-version-update"
-        # TODO: Build in check for master versus main base branch
-        commit_files(repo, head, "master", container)
-        open_new_pr(gh, repo, head, body=f"updating {container} version")
-        remove_directory()
+        pull_repo(gh, repo)
+        # update_container_image(old_container, new_container, repo)
+        # head = f"{container}-version-update"
+        # # TODO: Build in check for master versus main base branch
+        # commit_files(repo, head, "master", container)
+        # open_new_pr(gh, repo, head, body=f"updating {container} version")
+        # remove_directory()
 
 
 def open_new_pr(gh, repo, title, body, head="develop", base="master"):
@@ -84,8 +88,8 @@ def open_new_pr(gh, repo, title, body, head="develop", base="master"):
 def main():
     gh = auth(ACCESS_TOKEN)
     container = "debian:latest"
-    query = f"org:guild-connect FROM {container} in:{DOCKERFILE}"
-    repositories = search_github(gh, query)
+    query = f"FROM {container} in:{DOCKERFILE}"
+    repositories = search_github(gh, query, ORG_NAMES)
     update_from_image(gh, repositories, container)
 
 
