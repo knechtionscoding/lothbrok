@@ -21,11 +21,11 @@ def auth(ACCESS_TOKEN):
 
 
 def sed_inplace(filename, pattern, repl):
-    '''
+    """
     Perform the pure-Python equivalent of in-place `sed` substitution: e.g.,
     `sed -i -e 's/'${pattern}'/'${repl}' "${filename}"`.
     https://stackoverflow.com/questions/4427542/how-to-do-sed-like-text-replace-with-python
-    '''
+    """
     # For efficiency, precompile the passed regular expression.
     pattern_compiled = re.compile(pattern)
 
@@ -33,7 +33,7 @@ def sed_inplace(filename, pattern, repl):
     # writing with updating). This is usually a good thing. In this case,
     # however, binary writing imposes non-trivial encoding constraints trivially
     # resolved by switching to text writing. Let's do that.
-    with tempfile.NamedTemporaryFile(mode='w', delete=False) as tmp_file:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
         with open(filename) as src_file:
             for line in src_file:
                 tmp_file.write(pattern_compiled.sub(repl, line))
@@ -43,6 +43,7 @@ def sed_inplace(filename, pattern, repl):
     shutil.copystat(filename, tmp_file.name)
     shutil.move(tmp_file.name, filename)
 
+
 def search_github(gh, query, organizations):
     for org in organizations:
         result = gh.search_code(query, organizations=organizations)
@@ -51,12 +52,13 @@ def search_github(gh, query, organizations):
             repositories.append(repo.repository.full_name)
     return repositories
 
+
 def commit_files(repo, head, base, container):
     if repo != None:
-        if repo.active_branch == master
-        current = repo.create_head(head)
-        current.checkout()
-        repo.git.pull("origin", base)
+        if repo.active_branch == master:
+            current = repo.create_head(head)
+            current.checkout()
+            repo.git.pull("origin", base)
 
         if repo.index.diff(None) or repo.untracked_files:
 
@@ -66,6 +68,7 @@ def commit_files(repo, head, base, container):
             print("git push")
         else:
             print("no changes")
+
 
 def pull_repo(gh, repo_name):
     repo_url = gh.get_repo(repo_name).clone_url
@@ -78,6 +81,7 @@ def pull_repo(gh, repo_name):
     except:
         print("something went wrong when cloning repo")
 
+
 def update_container_image(old_container, new_container, directory):
     if old_container == new_container:
         client = docker.from_env()
@@ -85,7 +89,8 @@ def update_container_image(old_container, new_container, directory):
         # TODO: Figure out how to do a docker inspect because I'm not sure if docker python lib lets us do it...
     for root, dirs, files in os.walk(directory):
         if name in files:
-            sed_inplace(os.path.join(root, name),old_container,new_container)
+            sed_inplace(os.path.join(root, name), old_container, new_container)
+
 
 def remove_directory(repo_name):
     try:
@@ -93,6 +98,7 @@ def remove_directory(repo_name):
     except OSError as e:
         print(f"Error: {repo_name}: {e.sterror}")
     return True
+
 
 def update_from_image(gh, repositories, old_container, new_container):
     """
@@ -141,7 +147,8 @@ def configure():
         DOCKERFILE = os.environ["DOCKERFILE"]
         # GITHUB_URL = os.environ["GITHUB_URL"]
     except KeyError("DOCKERFILE"):
-        return ACCESS_TOKEN, ORGANIZATIONS, DOCKERFILE='DOCKERFILE'
+        DOCKERFILE = "DOCKERFILE"
+        return ACCESS_TOKEN, ORGANIZATIONS, DOCKERFILE
     except KeyError:
         try:
             config = configparser.ConfigParser()
