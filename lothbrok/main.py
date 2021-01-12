@@ -18,31 +18,33 @@ docker image, open an issue reporting the out of date container, and then open a
 """
 
 
-def processor(container, tag, update_minor=True):
-    container_string = ""
+def processor(tag, update_minor=True):
+    old_tag_prefix = ""
     v_pattern = r"^v\d+.\d+.\d+.*$"
     date_pattern = r"^.+?(?=\d{8})"
     if semantic_version.validate(tag):
         version = semantic_version.Version(tag)
         if not update_minor:
-            container_string = f"{container}:{version.major}.{version.minor}."
+            old_tag_prefix = f"{version.major}.{version.minor}."
         else:
-            container_string = f"{container}:{version.major}."
+            old_tag_prefix = f"{version.major}."
     # Checks if v<semantic-vesrion>
     elif re.match(v_pattern, tag):
         vless_tag = tag[1:]
         if semantic_version.validate(vless_tag):
             version = semantic_version.Version(vless_tag)
             if not update_minor:
-                container_string = f"{container}:v{version.major}.{version.minor}."
+                old_tag_prefix = f"v{version.major}.{version.minor}."
             else:
-                container_string = f"{container}:v{version.major}."
+                old_tag_prefix = f"v{version.major}."
     # Check if there is a YYYYMMDD Date in the tag and return everyting prior
     elif re.match(date_pattern, tag):
         pre_date = re.match(date_pattern, tag)
-        container_string = f"{container}:{pre_date.group()}"
+        old_tag_prefix = f"{pre_date.group()}"
+    else:
+        old_tag_prefix = ""
 
-    return container_string
+    return old_tag_prefix
 
 
 def auth(ACCESS_TOKEN):
@@ -74,7 +76,6 @@ def sed_inplace(filename, pattern, repl):
     shutil.move(tmp_file.name, filename)
 
 
-# Can't
 def search_github(gh, query, organizations):
     for org in organizations:
         result = gh.search_code(query, organizations=organizations)
@@ -94,7 +95,7 @@ def commit_files(repo, head, base, container):
         if repo.index.diff(None) or repo.untracked_files:
 
             repo.git.add(A=True)
-            repo.git.commit(m=f"fix: updating docker image: {container}")
+            repo.git.commit(m=f"fix: bump {container}:{tag_prefix} to {new_tag}")
             repo.git.push("--set-upstream", "origin", current)
             print("git push")
         else:
@@ -113,10 +114,11 @@ def pull_repo(gh, repo_name):
         print("something went wrong when cloning repo")
 
 
-def update_container_image(old_container, new_container, directory):
-    for root, dirs, files in os.walk(directory):
+def update_container_image(container, old_tag_prefix, new_tag, directory):
+    pattern = f"r'{container}:{old_tag_prefix}.* '"
+    for root, _, files in os.walk(directory):
         if name in files:
-            sed_inplace(os.path.join(root, name), old_container, new_container)
+            sed_inplace(os.path.join(root, name), pattern, new_tag)
 
 
 def remove_directory(repo_name):
@@ -127,7 +129,7 @@ def remove_directory(repo_name):
     return True
 
 
-def update_from_image(gh, repositories, old_container, new_container):
+def update_from_image(gh, repositories, container, tag_prefix, new_tag):
     """
     This code pulls the repository in question, does a git checkout on a new branch,
     then does a find and replace on the old image and the new image
@@ -136,11 +138,11 @@ def update_from_image(gh, repositories, old_container, new_container):
 
     for repo in repositories:
         base = pull_repo(gh, repo)
-        update_container_image(old_container, new_container, repo)
-        head = f"{container}-version-update"
+        update_container_image(container, tag_prefix, new_tag, repo)
+        head = f"fix/{container}-version-update"
         commit_files(repo, head, base, container)
-        open_new_pr(gh, repo, head, body=f"updating {container} version")
-        remove_directory()
+        open_new_pr(gh, repo, head, body=f"fix: updating {container} version")
+        remove_directory(repo)
 
 
 def open_new_pr(gh, repo, title, body, head="develop", base="master"):
@@ -190,15 +192,18 @@ def configure():
 def main(container, tag):
     ACCESS_TOKEN, ORGANIZATIONS = configure()
     gh = auth(ACCESS_TOKEN)
-    query = f"FROM {processor(container, tag)}"
+    tag_prefix = processor(tag)
+    query = f"FROM {container}:tag_prefix"
     # TODO: Solve how to best search. Github won't allow exact match searches
     # We could check out each repo in an organization, but in orgs with lots of repos
     # That will not scale really well.
     # Could search docker repositories if they allow us to do an inspect or something
     # But that isn't a great either because it won't solve non-published containers
     # Or containers that are in other places
+    # Github will match every word inside the file, so searching as specifically as possible
+    # will result in very close results
     repositories = search_github(gh, query, ORGANIZATIONS)
-    update_from_image(gh, repositories, container, container)
+    update_from_image(gh, repositories, container, tag_prefix, tag)
     processor(container, tag)
 
 
