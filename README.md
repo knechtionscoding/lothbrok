@@ -13,6 +13,15 @@ git clone <repo>
 cd <dir>
 poetry install
 
+# Supported Docker Registries and SCM Hosts
+
+## Docker Registries
+
+* Artifactory
+
+## SCM Hosts
+
+* Github
 
 ## Data Formats
 
