@@ -12,3 +12,29 @@ This projects attempts to solve a long standing problem of container to containe
 git clone <repo>
 cd <dir> 
 poetry install
+
+
+## Data Formats
+
+There is a flask webserver that accepts webhooks. Each container repository has a separate endpoint at /webhooks/<registry-name>
+
+e.g. `/webhooks/artifactory`
+
+That endpoint is responsible for processing the incoming webhook and parsing out the data required
+
+
+# Dataflow description
+
+* Incoming Webhook containing at least the following two pieces of data: container and tag
+* The processor will check if the tag is a semantic version
+    * If the tag is a semantic version the program will only update the same major version
+    * Option to update all versions, only update minor version
+        * if exclude_minor is set to false
+    * If the tag is in the format: `<prefix>-<date>` then lothbrok will only update the same prefix
+* Return pattern to search for
+* Call search function based on passed in option for SCM ()
+* Clone repositories where `<container>:<prefix>` is found
+* sed_in_place for `<container>:<prefix>` on repository
+* git commit
+* git push
+* based on passed in option for SCM open PR if possible

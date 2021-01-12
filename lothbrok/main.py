@@ -6,6 +6,9 @@ import os
 import configparser
 import re, shutil, tempfile
 import docker
+import semantic_version
+from datetime import datetime
+
 
 """
 This project listens for events from a docker image registry and then will search through configured repositories
@@ -13,6 +16,33 @@ looking for Dockerfiles containing 'FROM {container}'. It will then clone master
 docker image, open an issue reporting the out of date container, and then open a PR with a branch called:
 {container}-version-update.
 """
+
+
+def processor(container, tag, update_minor=True):
+    container_string = ""
+    v_pattern = r"^v\d+.\d+.\d+.*$"
+    date_pattern = r"^.+?(?=\d{8})"
+    if semantic_version.validate(tag):
+        version = semantic_version.Version(tag)
+        if not update_minor:
+            container_string = f"{container}:{version.major}.{version.minor}."
+        else:
+            container_string = f"{container}:{version.major}."
+    # Checks if v<semantic-vesrion>
+    elif re.match(v_pattern, tag):
+        vless_tag = tag[1:]
+        if semantic_version.validate(vless_tag):
+            version = semantic_version.Version(vless_tag)
+            if not update_minor:
+                container_string = f"{container}:v{version.major}.{version.minor}."
+            else:
+                container_string = f"{container}:v{version.major}."
+    # Check if there is a YYYYMMDD Date in the tag and return everyting prior
+    elif re.match(date_pattern, tag):
+        pre_date = re.match(date_pattern, tag)
+        container_string = f"{container}:{pre_date.group()}"
+
+    return container_string
 
 
 def auth(ACCESS_TOKEN):
@@ -44,6 +74,7 @@ def sed_inplace(filename, pattern, repl):
     shutil.move(tmp_file.name, filename)
 
 
+# Can't
 def search_github(gh, query, organizations):
     for org in organizations:
         result = gh.search_code(query, organizations=organizations)
@@ -83,10 +114,6 @@ def pull_repo(gh, repo_name):
 
 
 def update_container_image(old_container, new_container, directory):
-    if old_container == new_container:
-        client = docker.from_env()
-        old_image = client.images.get(old_container)
-        # TODO: Figure out how to do a docker inspect because I'm not sure if docker python lib lets us do it...
     for root, dirs, files in os.walk(directory):
         if name in files:
             sed_inplace(os.path.join(root, name), old_container, new_container)
@@ -144,17 +171,12 @@ def configure():
     try:
         ACCESS_TOKEN = os.environ["ACCESS_TOKEN"]
         ORGANIZATIONS = os.environ["ORGANIZATIONS"]
-        DOCKERFILE = os.environ["DOCKERFILE"]
         # GITHUB_URL = os.environ["GITHUB_URL"]
-    except KeyError("DOCKERFILE"):
-        DOCKERFILE = "DOCKERFILE"
-        return ACCESS_TOKEN, ORGANIZATIONS, DOCKERFILE
     except KeyError:
         try:
             config = configparser.ConfigParser()
             config.read(os.environ["LOTHBROK_CONFIG"])
             config.get("LOTHBROK", "ACCESS_TOKEN")
-            config.get("LOTHBROK", "DOCKERFILE")
             config.get("LOTHBROK", "ORGANIZATIONS")
             # config.get("LOTHBROK", "GITHUB_URL")
         except:
@@ -162,17 +184,25 @@ def configure():
                 "Error getting configurations. Enviornment variables not set or environment Variable: LOTHBROK_CONFIG not set and/or file doesn't exist."
             )
     else:
-        return ACCESS_TOKEN, DOCKERFILE, ORGANIZATIONS
+        return ACCESS_TOKEN, ORGANIZATIONS
 
 
-def main():
-    ACCESS_TOKEN, DOCKERFILE, ORGANIZATIONS = configure()
+def main(container, tag):
+    ACCESS_TOKEN, ORGANIZATIONS = configure()
     gh = auth(ACCESS_TOKEN)
-    container = "debian:latest"
-    query = f"FROM {container} in:{DOCKERFILE}"
+    query = f"FROM {processor(container, tag)}"
+    # TODO: Solve how to best search. Github won't allow exact match searches
+    # We could check out each repo in an organization, but in orgs with lots of repos
+    # That will not scale really well.
+    # Could search docker repositories if they allow us to do an inspect or something
+    # But that isn't a great either because it won't solve non-published containers
+    # Or containers that are in other places
     repositories = search_github(gh, query, ORGANIZATIONS)
     update_from_image(gh, repositories, container, container)
+    processor(container, tag)
 
 
 if __name__ == "__main__":
-    main()
+    container = "debian"
+    tag = "11.0.0"
+    main(container, tag)
