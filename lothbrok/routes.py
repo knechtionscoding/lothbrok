@@ -1,6 +1,6 @@
 from flask import Flask, request, Response
 import json
-import lothbrok
+from lothbrok import main as lothbrok
 
 app = Flask(__name__)
 
@@ -44,6 +44,10 @@ app = Flask(__name__)
 @app.route("/webhook/artifactory", methods=["POST"])
 def respond():
     data = json.load(request.json)
-    lothbrok.processor(data.image_name)
+    lothbrok.entrypoint(data["image_name"], data["tag"])
     print(request.json)
     return Response(status=200)
+
+
+if __name__ == "__main__":
+    app.run()

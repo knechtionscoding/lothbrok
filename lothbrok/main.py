@@ -189,7 +189,7 @@ def configure():
         return ACCESS_TOKEN, ORGANIZATIONS
 
 
-def main(container, tag):
+def entrypoint(container, tag):
     ACCESS_TOKEN, ORGANIZATIONS = configure()
     gh = auth(ACCESS_TOKEN)
     tag_prefix = processor(tag)
@@ -209,4 +209,4 @@ def main(container, tag):
 if __name__ == "__main__":
     container = "debian"
     tag = "11.0.0"
-    main(container, tag)
+    entrypoint(container, tag)
