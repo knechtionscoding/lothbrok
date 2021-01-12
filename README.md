@@ -52,6 +52,5 @@ This is because Lothbrok will not update a major version of your container unles
 * Write tests for webhooks
 * Write general webhook endpoint
 * Write tests for cloning
-* Write dockerfile
 * Publish docker image
 * Write K8s and Docker-Compose setup
