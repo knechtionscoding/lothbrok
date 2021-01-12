@@ -6,7 +6,7 @@ app = Flask(__name__)
 
 # Ability to accept artifactory webhooks
 # Example json
-""" 
+"""
 {
    "repo_key":"docker-remote-cache",
    "path":"library/ubuntu/latest/list.manifest.json",
@@ -37,7 +37,7 @@ app = Flask(__name__)
          "os":"linux"
     }
   ]
-} 
+}
 """
 
 

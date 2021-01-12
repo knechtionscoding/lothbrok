@@ -10,7 +10,7 @@ This projects attempts to solve a long standing problem of container to containe
 
 ### Install steps
 git clone <repo>
-cd <dir> 
+cd <dir>
 poetry install
 
 
