@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from github import Github
+import gitlab
 from git import Repo
 import os
 import configparser
@@ -18,9 +19,13 @@ docker image, open an issue reporting the out of date container, and then open a
 """
 
 
-def auth(ACCESS_TOKEN):
-    gh = Github(ACCESS_TOKEN)
-    return gh
+def auth(ACCESS_TOKEN, SCM_TYPE="GITHUB", SCM_URL="https://github.com"):
+    if SCM_TYPE == "GITHUB":
+        gh = Github(ACCESS_TOKEN)
+        return gh
+    elif SCM_TYPE == "GITLAB":
+        gl = gitlab.Gitlab(SCM_URL, private_token=ACCESS_TOKEN)
+        return gl
 
 
 def processor(tag, update_minor=True):
@@ -85,6 +90,12 @@ def search_github(gh, query, organizations):
     return repositories
 
 
+def search_gitlab(auth, query):
+    for repo in gl.search("projects", query, as_list=False):
+        repositories.append(repo.path_with_namespace)
+    return repositories
+
+
 def commit_files(repo, head, base, container):
     if repo != None:
         if repo.active_branch == master:
@@ -102,8 +113,16 @@ def commit_files(repo, head, base, container):
             print("no changes")
 
 
-def pull_repo(gh, repo_name):
-    repo_url = gh.get_repo(repo_name).clone_url
+def select_scm_type(auth, query, organizations="", SCM_TYPE="GITHUB"):
+    if SCM_TYPE == "GITHUB":
+        repositories = search_github(auth, query, organizations)
+        for repo in repositories:
+            repo_url = auth.get_repo(repo).clone_url
+            branch_name = pull_repo(auth, repo_url)
+    return branch_name
+
+
+def pull_repo(auth, repo_url):
     try:
         print(f"cloning {repo_name}")
         Repo.clone_from(repo_url, repo_name, depth=1)
