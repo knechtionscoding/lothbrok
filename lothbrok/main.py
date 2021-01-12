@@ -18,6 +18,11 @@ docker image, open an issue reporting the out of date container, and then open a
 """
 
 
+def auth(ACCESS_TOKEN):
+    gh = Github(ACCESS_TOKEN)
+    return gh
+
+
 def processor(tag, update_minor=True):
     old_tag_prefix = ""
     v_pattern = r"^v\d+.\d+.\d+.*$"
@@ -45,11 +50,6 @@ def processor(tag, update_minor=True):
         old_tag_prefix = ""
 
     return old_tag_prefix
-
-
-def auth(ACCESS_TOKEN):
-    gh = Github(ACCESS_TOKEN)
-    return gh
 
 
 def sed_inplace(filename, pattern, repl):
@@ -106,7 +106,7 @@ def pull_repo(gh, repo_name):
     repo_url = gh.get_repo(repo_name).clone_url
     try:
         print(f"cloning {repo_name}")
-        Repo.clone_from(repo_url, repo_name)
+        Repo.clone_from(repo_url, repo_name, depth=1)
         repo = Repo(repo_name)
         branch = repo.active_branch
         return branch.name

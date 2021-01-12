@@ -44,3 +44,14 @@ That endpoint is responsible for processing the incoming webhook and parsing out
 Lothbrok utilizes [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) both when contributing and when writing to repositories.
 This allows for automated generation of changelogs, version bumping, and provide a more intuitive parsing of commits. All commits will be written as `fix:` level commits.
 This is because Lothbrok will not update a major version of your container unless there is no versioning at all.
+
+# TODOS:
+
+* Write tests for search functions
+* Write general search function
+* Write tests for webhooks
+* Write general webhook endpoint
+* Write tests for cloning
+* Write dockerfile
+* Publish docker image
+* Write K8s and Docker-Compose setup
