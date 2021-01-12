@@ -204,7 +204,6 @@ def main(container, tag):
     # will result in very close results
     repositories = search_github(gh, query, ORGANIZATIONS)
     update_from_image(gh, repositories, container, tag_prefix, tag)
-    processor(container, tag)
 
 
 if __name__ == "__main__":
