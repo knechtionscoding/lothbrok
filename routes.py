@@ -1,6 +1,6 @@
 from flask import Flask, request, Response
 import json
-from lothbrok import main as lothbrok
+import lothbrok
 
 app = Flask(__name__)
 

@@ -5,6 +5,7 @@ services:
     ports:
       - "5000:5000"
     environment:
-    - ACCESS_TOKEN=
     - GITHUB_URL=https://github.com
-    - ORGANIZATIONS
+    - ORGANIZATIONS=
+    env_file:
+      - GH_TOKEN

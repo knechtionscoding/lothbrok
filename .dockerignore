@@ -1,0 +1,5 @@
+GH_TOKEN
+.pytest_cache
+__pycache__
+tests/
+.github
