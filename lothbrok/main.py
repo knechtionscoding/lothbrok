@@ -1,13 +1,17 @@
 #!/usr/bin/env python
 
 from github import Github
-from git import Repo
+from git import Repo, repo
 import os
 import configparser
 import re, shutil, tempfile
 import docker
 import semantic_version
 from datetime import datetime
+import logging
+from pprint import pprint
+
+logging.basicConfig(level=logging.ERROR)
 
 
 """
@@ -19,8 +23,11 @@ docker image, open an issue reporting the out of date container, and then open a
 
 
 def auth(ACCESS_TOKEN):
-    gh = Github(ACCESS_TOKEN)
-    return gh
+    try:
+        gh = Github(ACCESS_TOKEN)
+        return gh
+    except:
+        logging.error("Issue with Authentication")
 
 
 def processor(tag, update_minor=True):
@@ -58,6 +65,8 @@ def sed_inplace(filename, pattern, repl):
     `sed -i -e 's/'${pattern}'/'${repl}' "${filename}"`.
     https://stackoverflow.com/questions/4427542/how-to-do-sed-like-text-replace-with-python
     """
+
+    print("sed_in_place started")
     # For efficiency, precompile the passed regular expression.
     pattern_compiled = re.compile(pattern)
 
@@ -74,56 +83,66 @@ def sed_inplace(filename, pattern, repl):
     # manner preserving file attributes (e.g., permissions).
     shutil.copystat(filename, tmp_file.name)
     shutil.move(tmp_file.name, filename)
+    print("sed_in_place happened")
 
 
 def search_github(gh, query, organizations):
-    for org in organizations:
-        result = gh.search_code(query, organizations=organizations)
-        repositories = []
-        for repo in result:
-            repositories.append(repo.repository.full_name)
+    result = gh.search_code(query, org=organizations)
+    repositories = []
+    for repo in result:
+        repositories.append(
+            {
+                "name": repo.__dict__["_rawData"]["repository"]["full_name"],
+                "files": repo.path,
+            }
+        )
+
     return repositories
 
 
-def commit_files(repo, head, base, container):
-    if repo != None:
-        if repo.active_branch == master:
-            current = repo.create_head(head)
-            current.checkout()
-            repo.git.pull("origin", base)
+def commit_files(repo_name, branch_name, base, container):
+    repo = Repo(path=repo_name)
 
-        if repo.index.diff(None) or repo.untracked_files:
+    current = repo.create_head(branch_name)
+    current.checkout()
+    repo.git.pull("origin", base)
 
-            repo.git.add(A=True)
-            repo.git.commit(m=f"fix: bump {container}:{tag_prefix} to {new_tag}")
-            repo.git.push("--set-upstream", "origin", current)
-            print("git push")
-        else:
-            print("no changes")
+    if repo.index.diff(None) or repo.untracked_files:
+
+        repo.git.add(A=True)
+        repo.git.commit(m=f"fix: bump {container}")
+        repo.git.push("--set-upstream", "origin", current)
+        print("git push")
+    else:
+        print("no changes")
 
 
 def pull_repo(gh, repo_name):
+    """
+    This functions goal is to clone a repository and return the
+    """
     repo_url = gh.get_repo(repo_name).clone_url
     try:
-        print(f"cloning {repo_name}")
-        Repo.clone_from(repo_url, repo_name, depth=1)
-        repo = Repo(repo_name)
-        branch = repo.active_branch
-        return branch.name
-    except:
-        print("something went wrong when cloning repo")
+        Repo.clone_from(repo_url, repo_name)
+        return True
+    except Exception as e:
+        print(e)
+        logging.ERROR(f"something went wrong when cloning repo {e}")
 
 
-def update_container_image(container, old_tag_prefix, new_tag, directory):
+def update_container_image(container, old_tag_prefix, new_tag, file):
+    """
+    The goal of this function is to replace text in a
+    """
     pattern = f"r'{container}:{old_tag_prefix}.* '"
-    for root, _, files in os.walk(directory):
-        if name in files:
-            sed_inplace(os.path.join(root, name), pattern, new_tag)
+    print(file)
+    sed_inplace(file, pattern, new_tag)
 
 
 def remove_directory(repo_name):
     try:
-        shutil.rmtree(repo_name)
+        cwd = os.getcwd()
+        shutil.rmtree(f"{cwd}/{repo_name}", ignore_errors=True)
     except OSError as e:
         print(f"Error: {repo_name}: {e.sterror}")
     return True
@@ -137,12 +156,30 @@ def update_from_image(gh, repositories, container, tag_prefix, new_tag):
     """
 
     for repo in repositories:
-        base = pull_repo(gh, repo)
-        update_container_image(container, tag_prefix, new_tag, repo)
-        head = f"fix/{container}-version-update"
-        commit_files(repo, head, base, container)
-        open_new_pr(gh, repo, head, body=f"fix: updating {container} version")
-        remove_directory(repo)
+        # Ensures clean directory
+        repo_name = repo["name"]
+        file = repo["files"]
+        remove_directory(repo_name)
+        # Get current working directory
+        cwd = os.getcwd()
+        # Pull repo
+        if pull_repo(gh, repo_name):
+            print(repo_name)
+            update_container_image(
+                container, tag_prefix, new_tag, f"{cwd}/{repo_name}/{file}"
+            )
+            head = f"fix/{container}-version-update"
+            # TODO: Come up with good way to figure out default branch of repo
+            commit_files(repo_name, head, "main", container)
+            open_new_pr(
+                gh,
+                repo_name,
+                title=head,
+                head=head,
+                base="main",
+                body=f"fix: updating {container} version",
+            )
+            # remove_directory(repo_name)
 
 
 def open_new_pr(gh, repo, title, body, head="develop", base="master"):
@@ -181,7 +218,7 @@ def configure():
             config.get("LOTHBROK", "ORGANIZATIONS")
             # config.get("LOTHBROK", "GITHUB_URL")
         except:
-            print(
+            logging.error(
                 "Error getting configurations. Enviornment variables not set or environment Variable: LOTHBROK_CONFIG not set and/or file doesn't exist."
             )
     else:
@@ -192,7 +229,7 @@ def entrypoint(container, tag):
     ACCESS_TOKEN, ORGANIZATIONS = configure()
     gh = auth(ACCESS_TOKEN)
     tag_prefix = processor(tag)
-    query = f"FROM {container}:tag_prefix"
+    query = f"FROM {container}:{tag_prefix}"
     # TODO: Solve how to best search. Github won't allow exact match searches
     # We could check out each repo in an organization, but in orgs with lots of repos
     # That will not scale really well.
@@ -202,7 +239,13 @@ def entrypoint(container, tag):
     # Github will match every word inside the file, so searching as specifically as possible
     # will result in very close results
     repositories = search_github(gh, query, ORGANIZATIONS)
-    update_from_image(gh, repositories, container, tag_prefix, tag)
+
+    if repositories:
+        update_from_image(gh, repositories, container, tag_prefix, tag)
+        return ("Repositories updated", 200)
+    else:
+        print("No Objects returned from search")
+        return ("No Repositories Updated", 200)
 
 
 if __name__ == "__main__":

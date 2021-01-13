@@ -1,4 +1,7 @@
-FROM python:alpine
+FROM python:3.9.1-alpine
+
+RUN apk update && \
+    apk add --no-cache git=2.30.0-r0
 
 WORKDIR /usr/src/app
 

@@ -31,6 +31,9 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
+      env: # Or as an environment variable
+        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        ORGANIZATIONS: guild-connect
 
   build:
     runs-on: ubuntu-latest
