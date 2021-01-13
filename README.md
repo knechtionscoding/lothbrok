@@ -68,4 +68,5 @@ This is because Lothbrok will not update a major version of your container unles
 
 1. Create file named GH_TOKEN containing an Access token from Github. This token requires full repo privileges, and nothing else:
 `echo "GH_TOKEN=<your-token-here>" > GH_TOKEN`
-2. docker-compose up`
+2. Set Organizations Environment Variable in docker-compose file
+3. `docker-compose up`
