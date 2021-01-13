@@ -1,0 +1,10 @@
+version: "3.9"
+services:
+  api:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+    - ACCESS_TOKEN=
+    - GITHUB_URL=https://github.com
+    - ORGANIZATIONS

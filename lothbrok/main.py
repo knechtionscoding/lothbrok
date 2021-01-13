@@ -161,7 +161,6 @@ def configure():
     ACCESS_TOKEN
     GITHUB_URL
     ORGANIZATIONS
-    DOCKERFILE
 
     First looks for environment variables for each value. Then looks for a config file (specified via environment variable LOTHBROK_CONFIG).
     """
