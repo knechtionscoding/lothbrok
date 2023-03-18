@@ -1,0 +1,6 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "github>missionlane/renovate-config//renovate-presets/default.json"
+  ]
+}
